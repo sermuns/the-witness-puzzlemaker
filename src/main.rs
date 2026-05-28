@@ -107,7 +107,7 @@ impl App {
     }
 }
 
-fn draw_puzzle(screen_center_x_px: f32, screen_center_y_px: f32, has_grabbed_start: bool) {
+fn draw_puzzle(screen_center_x_px: f32, screen_center_y_px: f32, puzzle_trail: &[PuzzleCorner]) {
     let (puzzle_left_px, puzzle_top_px) =
         get_puzzle_left_and_top_px(screen_center_x_px, screen_center_y_px);
 
@@ -143,17 +143,6 @@ fn draw_puzzle(screen_center_x_px: f32, screen_center_y_px: f32, has_grabbed_sta
         );
     }
 
-    draw_circle(
-        puzzle_left_px,
-        puzzle_top_px + PUZZLE_HEIGHT_PX,
-        CURSOR_SIZE * 1.5,
-        if has_grabbed_start {
-            YELLOW
-        } else {
-            GRID_LINE_COLOR
-        },
-    );
-
     const END_NUB_LENGTH: f32 = 40.;
     draw_line(
         puzzle_left_px + PUZZLE_WIDTH_PX,
@@ -162,6 +151,41 @@ fn draw_puzzle(screen_center_x_px: f32, screen_center_y_px: f32, has_grabbed_sta
         puzzle_top_px - END_NUB_LENGTH,
         GRID_LINE_THICKNESS,
         GRID_LINE_COLOR,
+    );
+
+    draw_circle(
+        puzzle_left_px,
+        puzzle_top_px + PUZZLE_HEIGHT_PX,
+        CURSOR_SIZE * 1.5,
+        if puzzle_trail.is_empty() {
+            GRID_LINE_COLOR
+        } else {
+            YELLOW
+        },
+    );
+
+    let Some(last_corner) = puzzle_trail.last() else {
+        return;
+    };
+
+    for [corner1, corner2] in puzzle_trail.as_chunks().0 {
+        draw_line(
+            puzzle_left_px + corner1.column as f32 * PUZZLE_WIDTH_PX / PUZZLE_NUM_COLUMNS as f32,
+            puzzle_top_px + corner1.row as f32 * PUZZLE_HEIGHT_PX / PUZZLE_NUM_ROWS as f32,
+            puzzle_left_px + corner2.column as f32 * PUZZLE_WIDTH_PX / PUZZLE_NUM_COLUMNS as f32,
+            puzzle_top_px + corner2.row as f32 * PUZZLE_HEIGHT_PX / PUZZLE_NUM_ROWS as f32,
+            GRID_LINE_THICKNESS,
+            YELLOW,
+        );
+    }
+
+    draw_line(
+        puzzle_left_px + last_corner.column as f32 * PUZZLE_WIDTH_PX / PUZZLE_NUM_COLUMNS as f32,
+        puzzle_top_px + last_corner.row as f32 * PUZZLE_HEIGHT_PX / PUZZLE_NUM_ROWS as f32,
+        mouse_position().0,
+        mouse_position().1,
+        GRID_LINE_THICKNESS,
+        YELLOW,
     );
 }
 
@@ -179,11 +203,7 @@ async fn main() {
 
         clear_background(BLACK);
 
-        draw_puzzle(
-            screen_center_x_px,
-            screen_center_y_px,
-            !app.puzzle_trail.is_empty(),
-        );
+        draw_puzzle(screen_center_x_px, screen_center_y_px, &app.puzzle_trail);
         app.draw_cursor();
 
         next_frame().await
