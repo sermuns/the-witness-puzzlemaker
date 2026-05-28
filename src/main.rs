@@ -53,13 +53,23 @@ async fn main() {
             screen_center_x_px - rect_width_px / 2.,
             screen_center_y_px - rect_height_px / 2.,
         );
+
+        const PUZZLE_BACKGROUND: Color = Color::from_rgba(255, 255, 255, 80);
         draw_rectangle(
             rect_left_px,
             rect_top_px,
             rect_width_px,
             rect_height_px,
-            RED,
+            PUZZLE_BACKGROUND,
         );
+
+        const NUM_LINES: usize = 5;
+        for i in 0..NUM_LINES + 1 {
+            let x = rect_left_px + i as f32 * rect_width_px / NUM_LINES as f32;
+            draw_line(x, rect_top_px, x, rect_top_px + rect_height_px, 1., RED);
+            let y = rect_top_px + i as f32 * rect_height_px / NUM_LINES as f32;
+            draw_line(rect_left_px, y, rect_left_px + rect_width_px, y, 1., RED);
+        }
 
         next_frame().await
     }
