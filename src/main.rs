@@ -88,6 +88,16 @@ fn draw_puzzle(screen_center_x_px: f32, screen_center_y_px: f32) {
         CURSOR_SIZE * 1.5,
         GRID_LINE_COLOR,
     );
+
+    const END_NUB_LENGTH: f32 = 40.;
+    draw_line(
+        rect_left_px + RECT_WIDTH_PX,
+        rect_top_px,
+        rect_left_px + RECT_WIDTH_PX,
+        rect_top_px - END_NUB_LENGTH,
+        GRID_LINE_THICKNESS,
+        GRID_LINE_COLOR,
+    );
 }
 
 fn draw_cursor() {
