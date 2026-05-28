@@ -1,6 +1,13 @@
 use macroquad::{miniquad::window::screen_size, prelude::*};
 
 const CURSOR_SIZE: f32 = 15.;
+const PUZZLE_START_CIRCLE_SIZE: f32 = CURSOR_SIZE * 1.5;
+
+const PUZZLE_WIDTH_PX: f32 = 500.;
+const PUZZLE_HEIGHT_PX: f32 = PUZZLE_WIDTH_PX;
+
+const PUZZLE_NUM_ROWS: usize = 3;
+const PUZZLE_NUM_COLUMNS: usize = PUZZLE_NUM_ROWS;
 
 fn window_conf() -> Conf {
     Conf {
@@ -11,71 +18,125 @@ fn window_conf() -> Conf {
 
 #[derive(Debug)]
 struct PuzzleCorner {
-    row: usize,
     column: usize,
+    row: usize,
 }
 
-type PuzzleTrail = Vec<PuzzleCorner>;
+impl PuzzleCorner {
+    pub fn new(column: usize, row: usize) -> Self {
+        Self { column, row }
+    }
+
+    pub fn is_being_touched_by_cursor(
+        &self,
+        (mouse_x, mouse_y): (f32, f32),
+        screen_center_x_px: f32,
+        screen_center_y_px: f32,
+    ) -> bool {
+        let (puzzle_left_px, puzzle_top_px) =
+            get_puzzle_left_and_top_px(screen_center_x_px, screen_center_y_px);
+
+        let puzzle_corner_x_px =
+            puzzle_left_px + self.column as f32 * PUZZLE_WIDTH_PX / PUZZLE_NUM_COLUMNS as f32;
+        let puzzle_corner_y_px =
+            puzzle_top_px + self.row as f32 * PUZZLE_HEIGHT_PX / PUZZLE_NUM_ROWS as f32;
+
+        let dx = mouse_x - puzzle_corner_x_px;
+        let dy = mouse_y - puzzle_corner_y_px;
+        dx * dx + dy * dy <= PUZZLE_START_CIRCLE_SIZE.powi(2)
+    }
+}
 
 #[derive(Debug)]
 struct App {
     paused: bool,
-    puzzle_trail: Option<PuzzleTrail>,
+    puzzle_trail: Vec<PuzzleCorner>,
+}
+
+fn get_puzzle_left_and_top_px(screen_center_x_px: f32, screen_center_y_px: f32) -> (f32, f32) {
+    (
+        screen_center_x_px - PUZZLE_WIDTH_PX / 2.,
+        screen_center_y_px - PUZZLE_HEIGHT_PX / 2.,
+    )
 }
 
 impl App {
     pub fn new() -> Self {
         Self {
             paused: true,
-            puzzle_trail: None,
+            puzzle_trail: Vec::new(),
         }
     }
 
-    pub fn handle_user_input(&mut self) {
+    pub fn handle_user_input(&mut self, screen_center_x_px: f32, screen_center_y_px: f32) {
         if is_key_pressed(KeyCode::Escape)
             || (self.paused && is_mouse_button_pressed(MouseButton::Left))
         {
             self.paused = !self.paused;
+            self.puzzle_trail.clear();
+            return;
         }
+
+        if is_mouse_button_pressed(MouseButton::Right) {
+            self.puzzle_trail.clear();
+            return;
+        }
+
+        if self.puzzle_trail.is_empty()
+            && is_mouse_button_pressed(MouseButton::Left)
+            && PuzzleCorner::new(0, PUZZLE_NUM_ROWS).is_being_touched_by_cursor(
+                mouse_position(),
+                screen_center_x_px,
+                screen_center_y_px,
+            )
+        {
+            println!("fuck");
+            self.puzzle_trail
+                .push(PuzzleCorner::new(0, PUZZLE_NUM_ROWS));
+        }
+    }
+
+    pub fn draw_cursor(&self) {
+        if self.paused {
+            return;
+        }
+        let (mouse_x, mouse_y) = mouse_position();
+
+        const CURSOR_COLOR: Color = Color::from_rgba(255, 255, 255, 200);
+        draw_circle(mouse_x, mouse_y, CURSOR_SIZE, CURSOR_COLOR);
     }
 }
 
-fn draw_puzzle(screen_center_x_px: f32, screen_center_y_px: f32) {
-    const RECT_WIDTH_PX: f32 = 500.;
-    const RECT_HEIGHT_PX: f32 = RECT_WIDTH_PX;
-
-    let (rect_left_px, rect_top_px) = (
-        screen_center_x_px - RECT_WIDTH_PX / 2.,
-        screen_center_y_px - RECT_HEIGHT_PX / 2.,
-    );
+fn draw_puzzle(screen_center_x_px: f32, screen_center_y_px: f32, has_grabbed_start: bool) {
+    let (puzzle_left_px, puzzle_top_px) =
+        get_puzzle_left_and_top_px(screen_center_x_px, screen_center_y_px);
 
     const PUZZLE_BACKGROUND: Color = Color::from_rgba(255, 255, 255, 80);
     draw_rectangle(
-        rect_left_px,
-        rect_top_px,
-        RECT_WIDTH_PX,
-        RECT_HEIGHT_PX,
+        puzzle_left_px,
+        puzzle_top_px,
+        PUZZLE_WIDTH_PX,
+        PUZZLE_HEIGHT_PX,
         PUZZLE_BACKGROUND,
     );
 
-    const NUM_LINES: usize = 3;
-    const GRID_LINE_THICKNESS: f32 = 10.;
+    const GRID_LINE_THICKNESS: f32 = 12.;
     const GRID_LINE_COLOR: Color = Color::from_hex(0x888888);
-    for i in 0..NUM_LINES + 1 {
-        let x = rect_left_px + i as f32 * RECT_WIDTH_PX / NUM_LINES as f32;
+    for i in 0..PUZZLE_NUM_ROWS + 1 {
+        let x = puzzle_left_px + i as f32 * PUZZLE_WIDTH_PX / PUZZLE_NUM_ROWS as f32;
         draw_line(
             x,
-            rect_top_px,
+            puzzle_top_px,
             x,
-            rect_top_px + RECT_HEIGHT_PX,
+            puzzle_top_px + PUZZLE_HEIGHT_PX,
             GRID_LINE_THICKNESS,
             GRID_LINE_COLOR,
         );
-        let y = rect_top_px + i as f32 * RECT_HEIGHT_PX / NUM_LINES as f32;
+        let y = puzzle_top_px + i as f32 * PUZZLE_HEIGHT_PX / PUZZLE_NUM_ROWS as f32;
         draw_line(
-            rect_left_px,
+            puzzle_left_px,
             y,
-            rect_left_px + RECT_WIDTH_PX,
+            puzzle_left_px + PUZZLE_WIDTH_PX,
             y,
             GRID_LINE_THICKNESS,
             GRID_LINE_COLOR,
@@ -83,28 +144,25 @@ fn draw_puzzle(screen_center_x_px: f32, screen_center_y_px: f32) {
     }
 
     draw_circle(
-        rect_left_px,
-        rect_top_px + RECT_HEIGHT_PX,
+        puzzle_left_px,
+        puzzle_top_px + PUZZLE_HEIGHT_PX,
         CURSOR_SIZE * 1.5,
-        GRID_LINE_COLOR,
+        if has_grabbed_start {
+            YELLOW
+        } else {
+            GRID_LINE_COLOR
+        },
     );
 
     const END_NUB_LENGTH: f32 = 40.;
     draw_line(
-        rect_left_px + RECT_WIDTH_PX,
-        rect_top_px,
-        rect_left_px + RECT_WIDTH_PX,
-        rect_top_px - END_NUB_LENGTH,
+        puzzle_left_px + PUZZLE_WIDTH_PX,
+        puzzle_top_px,
+        puzzle_left_px + PUZZLE_WIDTH_PX,
+        puzzle_top_px - END_NUB_LENGTH,
         GRID_LINE_THICKNESS,
         GRID_LINE_COLOR,
     );
-}
-
-fn draw_cursor() {
-    let (mouse_x, mouse_y) = mouse_position();
-
-    const CURSOR_COLOR: Color = Color::from_rgba(255, 255, 255, 200);
-    draw_circle(mouse_x, mouse_y, CURSOR_SIZE, CURSOR_COLOR);
 }
 
 #[macroquad::main(window_conf)]
@@ -113,18 +171,20 @@ async fn main() {
     dbg!(&app);
 
     loop {
-        app.handle_user_input();
-
-        clear_background(BLACK);
-
         let (screen_width_px, screen_height_px) = screen_size();
         let (screen_center_x_px, screen_center_y_px) =
             (screen_width_px / 2., screen_height_px / 2.);
 
-        draw_puzzle(screen_center_x_px, screen_center_y_px);
-        if !app.paused {
-            draw_cursor();
-        }
+        app.handle_user_input(screen_center_x_px, screen_center_y_px);
+
+        clear_background(BLACK);
+
+        draw_puzzle(
+            screen_center_x_px,
+            screen_center_y_px,
+            !app.puzzle_trail.is_empty(),
+        );
+        app.draw_cursor();
 
         next_frame().await
     }
