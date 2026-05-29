@@ -238,9 +238,18 @@ fn draw_puzzle(puzzle_trail: &[PuzzleCorner]) {
             )
         };
 
-    for [corner1, corner2] in puzzle_trail.array_windows() {
+    for (i, [corner1, corner2]) in puzzle_trail.array_windows().enumerate() {
         let (corner1_x_px, corner1_y_px) = corner1.as_px();
         let (corner2_x_px, corner2_y_px) = corner2.as_px();
+
+        draw_text(
+            format!("({i}) {},{}", corner2.column, corner2.row).as_str(),
+            corner2_x_px + 10.,
+            corner2_y_px - 10.,
+            20.,
+            GRID_LINE_COLOR,
+        );
+
         draw_line(
             corner1_x_px,
             corner1_y_px,
