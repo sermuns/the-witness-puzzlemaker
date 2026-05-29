@@ -4,3 +4,5 @@ build-web:
   mkdir -p dist
   cp ./target/wasm32-unknown-unknown/release/the-witness-puzzlemaker.wasm ./index.html ./static/* ./dist/
 
+watch:
+  watchexec -r -w src -- cargo run
