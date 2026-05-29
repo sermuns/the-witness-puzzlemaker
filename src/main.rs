@@ -1,6 +1,8 @@
 use macroquad::{miniquad::window::screen_size, prelude::*};
 
 const CURSOR_SIZE: f32 = 15.;
+const CURSOR_COLOR: Color = Color::from_rgba(255, 255, 255, 200);
+
 const PUZZLE_START_CIRCLE_SIZE: f32 = CURSOR_SIZE * 1.5;
 const PUZZLE_TRAIL_COLOR: Color = Color::from_hex(0xcccc00);
 
@@ -123,13 +125,6 @@ impl App {
                 .push(PuzzleCorner::new(0, PUZZLE_NUM_ROWS));
         }
     }
-
-    pub fn draw_cursor(&self) {
-        let (mouse_x, mouse_y) = mouse_position();
-
-        const CURSOR_COLOR: Color = Color::from_rgba(255, 255, 255, 200);
-        draw_circle(mouse_x, mouse_y, CURSOR_SIZE, CURSOR_COLOR);
-    }
 }
 
 fn draw_puzzle(screen_center_x_px: f32, screen_center_y_px: f32, puzzle_trail: &[PuzzleCorner]) {
@@ -145,7 +140,7 @@ fn draw_puzzle(screen_center_x_px: f32, screen_center_y_px: f32, puzzle_trail: &
         PUZZLE_BACKGROUND,
     );
 
-    const GRID_LINE_THICKNESS: f32 = 12.;
+    const GRID_LINE_THICKNESS: f32 = 15.;
     const GRID_LINE_COLOR: Color = Color::from_hex(0x888888);
     for i in 0..PUZZLE_NUM_ROWS + 1 {
         let x = puzzle_left_px + i as f32 * PUZZLE_WIDTH_PX / PUZZLE_NUM_ROWS as f32;
@@ -189,7 +184,10 @@ fn draw_puzzle(screen_center_x_px: f32, screen_center_y_px: f32, puzzle_trail: &
         },
     );
 
+    let (mouse_x_px, mouse_y_px) = mouse_position();
+
     let Some(last_corner) = puzzle_trail.last() else {
+        draw_circle(mouse_x_px, mouse_y_px, CURSOR_SIZE, CURSOR_COLOR);
         return;
     };
 
@@ -204,7 +202,6 @@ fn draw_puzzle(screen_center_x_px: f32, screen_center_y_px: f32, puzzle_trail: &
         );
     }
 
-    let (mouse_x_px, mouse_y_px) = mouse_position();
     let (last_corner_x_px, last_corner_y_px) = (
         puzzle_left_px + last_corner.column as f32 * PUZZLE_WIDTH_PX / PUZZLE_NUM_COLUMNS as f32,
         puzzle_top_px + last_corner.row as f32 * PUZZLE_HEIGHT_PX / PUZZLE_NUM_ROWS as f32,
@@ -222,6 +219,13 @@ fn draw_puzzle(screen_center_x_px: f32, screen_center_y_px: f32, puzzle_trail: &
         projected_mouse_x,
         projected_mouse_y,
         GRID_LINE_THICKNESS,
+        PUZZLE_TRAIL_COLOR,
+    );
+
+    draw_circle(
+        projected_mouse_x,
+        projected_mouse_y,
+        CURSOR_SIZE,
         PUZZLE_TRAIL_COLOR,
     );
 }
@@ -247,7 +251,6 @@ async fn main() {
         clear_background(BLACK);
 
         draw_puzzle(screen_center_x_px, screen_center_y_px, &app.puzzle_trail);
-        app.draw_cursor();
 
         next_frame().await
     }
