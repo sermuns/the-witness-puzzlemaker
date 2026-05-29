@@ -28,6 +28,18 @@ impl PuzzleCorner {
         Self { column, row }
     }
 
+    pub fn as_px(&self) -> (f32, f32) {
+        let (screen_center_x_px, screen_center_y_px) = (screen_size().0 / 2., screen_size().1 / 2.);
+
+        let (puzzle_left_px, puzzle_top_px) =
+            get_puzzle_left_and_top_px(screen_center_x_px, screen_center_y_px);
+
+        (
+            puzzle_left_px + self.column as f32 * PUZZLE_WIDTH_PX / PUZZLE_NUM_COLUMNS as f32,
+            puzzle_top_px + self.row as f32 * PUZZLE_HEIGHT_PX / PUZZLE_NUM_ROWS as f32,
+        )
+    }
+
     pub fn closest() -> Option<Self> {
         let (mouse_x, mouse_y) = mouse_position();
         let (screen_center_x_px, screen_center_y_px) = (screen_size().0 / 2., screen_size().1 / 2.);
@@ -57,24 +69,15 @@ impl PuzzleCorner {
     }
 
     pub fn is_being_touched_by_cursor(&self) -> bool {
+        let (puzzle_corner_x_px, puzzle_corner_y_px) = self.as_px();
+
         let (mouse_x, mouse_y) = mouse_position();
-        let (screen_center_x_px, screen_center_y_px) = (screen_size().0 / 2., screen_size().1 / 2.);
-
-        let (puzzle_left_px, puzzle_top_px) =
-            get_puzzle_left_and_top_px(screen_center_x_px, screen_center_y_px);
-
-        let puzzle_corner_x_px =
-            puzzle_left_px + self.column as f32 * PUZZLE_WIDTH_PX / PUZZLE_NUM_COLUMNS as f32;
-        let puzzle_corner_y_px =
-            puzzle_top_px + self.row as f32 * PUZZLE_HEIGHT_PX / PUZZLE_NUM_ROWS as f32;
-
         let dx = mouse_x - puzzle_corner_x_px;
         let dy = mouse_y - puzzle_corner_y_px;
         dx * dx + dy * dy <= (1.5 * PUZZLE_START_CIRCLE_SIZE).powi(2)
     }
 
     pub fn straight_trail_to(&self, other: &PuzzleCorner) -> Option<Vec<PuzzleCorner>> {
-        dbg!(self.column.cmp(&other.column), self.row.cmp(&other.row));
         match (self.column.cmp(&other.column), self.row.cmp(&other.row)) {
             (Ordering::Equal, Ordering::Greater) => Some(
                 (other.row..=self.row)
@@ -98,11 +101,6 @@ impl PuzzleCorner {
             ),
             _ => None,
         }
-    }
-
-    pub fn is_within_range_of(&self, other: &PuzzleCorner) -> bool {
-        self.column.abs_diff(other.column) == 1 && self.row.abs_diff(other.row) == 0
-            || self.column.abs_diff(other.column) == 0 && self.row.abs_diff(other.row) == 1
     }
 }
 
@@ -143,13 +141,9 @@ impl App {
             && let Some(closest) = PuzzleCorner::closest()
             && closest.is_being_touched_by_cursor()
             && !self.puzzle_trail.contains(&closest)
+            && let Some(straight_trail) = &mut last_corner.straight_trail_to(&closest)
         {
-            // if last_corner.is_within_range_of(&closest) {
-            //     self.puzzle_trail.push(closest);
-            if let Some(straight_trail) = &mut last_corner.straight_trail_to(&closest) {
-                dbg!(&straight_trail);
-                self.puzzle_trail.append(straight_trail);
-            }
+            self.puzzle_trail.append(straight_trail);
         } else if is_mouse_button_pressed(MouseButton::Left) {
             let start = PuzzleCorner::new(0, PUZZLE_NUM_ROWS);
             if start.is_being_touched_by_cursor() {
@@ -230,21 +224,7 @@ fn draw_puzzle(puzzle_trail: &[PuzzleCorner]) {
         return;
     };
 
-    for [corner1, corner2] in puzzle_trail.array_windows() {
-        draw_line(
-            puzzle_left_px + corner1.column as f32 * PUZZLE_WIDTH_PX / PUZZLE_NUM_COLUMNS as f32,
-            puzzle_top_px + corner1.row as f32 * PUZZLE_HEIGHT_PX / PUZZLE_NUM_ROWS as f32,
-            puzzle_left_px + corner2.column as f32 * PUZZLE_WIDTH_PX / PUZZLE_NUM_COLUMNS as f32,
-            puzzle_top_px + corner2.row as f32 * PUZZLE_HEIGHT_PX / PUZZLE_NUM_ROWS as f32,
-            GRID_LINE_THICKNESS,
-            PUZZLE_TRAIL_COLOR,
-        );
-    }
-
-    let (last_corner_x_px, last_corner_y_px) = (
-        puzzle_left_px + last_corner.column as f32 * PUZZLE_WIDTH_PX / PUZZLE_NUM_COLUMNS as f32,
-        puzzle_top_px + last_corner.row as f32 * PUZZLE_HEIGHT_PX / PUZZLE_NUM_ROWS as f32,
-    );
+    let (last_corner_x_px, last_corner_y_px) = last_corner.as_px();
     let (projected_mouse_x, projected_mouse_y) =
         if (mouse_x_px - last_corner_x_px).abs() > (mouse_y_px - last_corner_y_px).abs() {
             (
@@ -258,9 +238,23 @@ fn draw_puzzle(puzzle_trail: &[PuzzleCorner]) {
             )
         };
 
+    for [corner1, corner2] in puzzle_trail.array_windows() {
+        let (corner1_x_px, corner1_y_px) = corner1.as_px();
+        let (corner2_x_px, corner2_y_px) = corner2.as_px();
+        draw_line(
+            corner1_x_px,
+            corner1_y_px,
+            corner2_x_px,
+            corner2_y_px,
+            GRID_LINE_THICKNESS,
+            PUZZLE_TRAIL_COLOR,
+        );
+    }
+
+    let (last_corner_x_px, last_corner_y_px) = last_corner.as_px();
     draw_line(
-        puzzle_left_px + last_corner.column as f32 * PUZZLE_WIDTH_PX / PUZZLE_NUM_COLUMNS as f32,
-        puzzle_top_px + last_corner.row as f32 * PUZZLE_HEIGHT_PX / PUZZLE_NUM_ROWS as f32,
+        last_corner_x_px,
+        last_corner_y_px,
         projected_mouse_x,
         projected_mouse_y,
         GRID_LINE_THICKNESS,
