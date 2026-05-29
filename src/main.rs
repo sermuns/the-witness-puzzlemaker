@@ -234,7 +234,6 @@ async fn main() {
     let mut app = App::new();
 
     loop {
-        dbg!(&app.puzzle_trail);
         let (screen_width_px, screen_height_px) = screen_size();
         let (screen_center_x_px, screen_center_y_px) =
             (screen_width_px / 2., screen_height_px / 2.);

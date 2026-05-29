@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="sv">
+	<head>
+		<meta charset="utf-8" />
+		<style>
+			html,
+			body,
+			canvas {
+				margin: 0px;
+				padding: 0px;
+				width: 100%;
+				height: 100%;
+				overflow: hidden;
+				position: absolute;
+				background: black;
+				z-index: 0;
+			}
+		</style>
+		<link data-trunk rel="rust" data-wasm-no-import />
+	</head>
+
+	<body>
+		<canvas id="glcanvas" tabindex="1"></canvas>
+		<script data-trunk src="static/mq_js_bundle.js"></script>
+		<script>
+			load("the_witness_puzzlemaker_bg.wasm");
+		</script>
+	</body>
+</html>
