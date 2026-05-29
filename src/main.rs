@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use macroquad::{miniquad::window::screen_size, prelude::*};
 
 const CURSOR_SIZE: f32 = 15.;
@@ -71,9 +73,36 @@ impl PuzzleCorner {
         dx * dx + dy * dy <= (1.5 * PUZZLE_START_CIRCLE_SIZE).powi(2)
     }
 
+    pub fn straight_trail_to(&self, other: &PuzzleCorner) -> Option<Vec<PuzzleCorner>> {
+        dbg!(self.column.cmp(&other.column), self.row.cmp(&other.row));
+        match (self.column.cmp(&other.column), self.row.cmp(&other.row)) {
+            (Ordering::Equal, Ordering::Greater) => Some(
+                (other.row..=self.row)
+                    .map(|row| PuzzleCorner::new(self.column, row))
+                    .collect(),
+            ),
+            (Ordering::Equal, Ordering::Less) => Some(
+                (self.row..=other.row)
+                    .map(|row| PuzzleCorner::new(self.column, row))
+                    .collect(),
+            ),
+            (Ordering::Greater, Ordering::Equal) => Some(
+                (other.column..=self.column)
+                    .map(|column| PuzzleCorner::new(column, self.row))
+                    .collect(),
+            ),
+            (Ordering::Less, Ordering::Equal) => Some(
+                (self.column..=other.column)
+                    .map(|column| PuzzleCorner::new(column, self.row))
+                    .collect(),
+            ),
+            _ => None,
+        }
+    }
+
     pub fn is_within_range_of(&self, other: &PuzzleCorner) -> bool {
-        self.column.abs_diff(other.column) >= 1 && self.row.abs_diff(other.row) == 0
-            || self.column.abs_diff(other.column) == 0 && self.row.abs_diff(other.row) >= 1
+        self.column.abs_diff(other.column) == 1 && self.row.abs_diff(other.row) == 0
+            || self.column.abs_diff(other.column) == 0 && self.row.abs_diff(other.row) == 1
     }
 }
 
@@ -109,13 +138,18 @@ impl App {
             .nth_back(1)
             .is_some_and(|c| c.is_being_touched_by_cursor())
         {
+            self.puzzle_trail.pop();
         } else if let Some(last_corner) = self.puzzle_trail.last()
             && let Some(closest) = PuzzleCorner::closest()
             && closest.is_being_touched_by_cursor()
             && !self.puzzle_trail.contains(&closest)
-            && closest.is_within_range_of(last_corner)
         {
-            self.puzzle_trail.push(closest);
+            // if last_corner.is_within_range_of(&closest) {
+            //     self.puzzle_trail.push(closest);
+            if let Some(straight_trail) = &mut last_corner.straight_trail_to(&closest) {
+                dbg!(&straight_trail);
+                self.puzzle_trail.append(straight_trail);
+            }
         } else if is_mouse_button_pressed(MouseButton::Left) {
             let start = PuzzleCorner::new(0, PUZZLE_NUM_ROWS);
             if start.is_being_touched_by_cursor() {
