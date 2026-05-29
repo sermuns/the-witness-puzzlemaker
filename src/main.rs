@@ -68,6 +68,11 @@ impl PuzzleCorner {
         let dy = mouse_y - puzzle_corner_y_px;
         dx * dx + dy * dy <= (1.5 * PUZZLE_START_CIRCLE_SIZE).powi(2)
     }
+
+    pub fn is_within_range_of(&self, other: &PuzzleCorner) -> bool {
+        self.column.abs_diff(other.column) >= 1 && self.row.abs_diff(other.row) == 0
+            || self.column.abs_diff(other.column) == 0 && self.row.abs_diff(other.row) >= 1
+    }
 }
 
 #[derive(Debug)]
@@ -104,6 +109,7 @@ impl App {
                 screen_center_y_px,
             )
             && !self.puzzle_trail.contains(&closest)
+            && closest.is_within_range_of(last_corner)
         {
             self.puzzle_trail.push(closest);
         } else if is_mouse_button_pressed(MouseButton::Left)
