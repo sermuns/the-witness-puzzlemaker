@@ -4,6 +4,9 @@ const CURSOR_SIZE: f32 = 15.;
 const CURSOR_COLOR: Color = Color::from_rgba(255, 255, 255, 200);
 
 const PUZZLE_START_CIRCLE_SIZE: f32 = CURSOR_SIZE * 1.5;
+const PUZZLE_INACTIVE_BACKGROUND: Color = Color::from_hex(0x555555);
+const PUZZLE_ACTIVE_BACKGROUND: Color = Color::from_hex(0x333333);
+
 const PUZZLE_TRAIL_COLOR: Color = Color::from_hex(0xcccc00);
 
 const PUZZLE_WIDTH_PX: f32 = 500.;
@@ -102,6 +105,7 @@ impl App {
             return;
         }
 
+        // FIXME: unreadable shit
         if let Some(last_corner) = self.puzzle_trail.last()
             && let Some(closest) =
                 PuzzleCorner::closest(mouse_position(), screen_center_x_px, screen_center_y_px)
@@ -114,15 +118,15 @@ impl App {
             && closest.is_within_range_of(last_corner)
         {
             self.puzzle_trail.push(closest);
-        } else if is_mouse_button_pressed(MouseButton::Left)
-            && PuzzleCorner::new(0, PUZZLE_NUM_ROWS).is_being_touched_by_cursor(
+        } else if is_mouse_button_pressed(MouseButton::Left) {
+            let start = PuzzleCorner::new(0, PUZZLE_NUM_ROWS);
+            if start.is_being_touched_by_cursor(
                 mouse_position(),
                 screen_center_x_px,
                 screen_center_y_px,
-            )
-        {
-            self.puzzle_trail
-                .push(PuzzleCorner::new(0, PUZZLE_NUM_ROWS));
+            ) {
+                self.puzzle_trail.push(start);
+            }
         }
     }
 }
@@ -130,14 +134,19 @@ impl App {
 fn draw_puzzle(screen_center_x_px: f32, screen_center_y_px: f32, puzzle_trail: &[PuzzleCorner]) {
     let (puzzle_left_px, puzzle_top_px) =
         get_puzzle_left_and_top_px(screen_center_x_px, screen_center_y_px);
+    let puzzle_right_px = puzzle_left_px + PUZZLE_WIDTH_PX;
+    let puzzle_bottom_px = puzzle_top_px + PUZZLE_HEIGHT_PX;
 
-    const PUZZLE_BACKGROUND: Color = Color::from_rgba(255, 255, 255, 80);
     draw_rectangle(
         puzzle_left_px,
         puzzle_top_px,
         PUZZLE_WIDTH_PX,
         PUZZLE_HEIGHT_PX,
-        PUZZLE_BACKGROUND,
+        if puzzle_trail.is_empty() {
+            PUZZLE_INACTIVE_BACKGROUND
+        } else {
+            PUZZLE_ACTIVE_BACKGROUND
+        },
     );
 
     const GRID_LINE_THICKNESS: f32 = 15.;
@@ -148,7 +157,7 @@ fn draw_puzzle(screen_center_x_px: f32, screen_center_y_px: f32, puzzle_trail: &
             x,
             puzzle_top_px,
             x,
-            puzzle_top_px + PUZZLE_HEIGHT_PX,
+            puzzle_bottom_px,
             GRID_LINE_THICKNESS,
             GRID_LINE_COLOR,
         );
@@ -156,7 +165,7 @@ fn draw_puzzle(screen_center_x_px: f32, screen_center_y_px: f32, puzzle_trail: &
         draw_line(
             puzzle_left_px,
             y,
-            puzzle_left_px + PUZZLE_WIDTH_PX,
+            puzzle_right_px,
             y,
             GRID_LINE_THICKNESS,
             GRID_LINE_COLOR,
@@ -165,9 +174,9 @@ fn draw_puzzle(screen_center_x_px: f32, screen_center_y_px: f32, puzzle_trail: &
 
     const END_NUB_LENGTH: f32 = 40.;
     draw_line(
-        puzzle_left_px + PUZZLE_WIDTH_PX,
+        puzzle_right_px,
         puzzle_top_px,
-        puzzle_left_px + PUZZLE_WIDTH_PX,
+        puzzle_right_px,
         puzzle_top_px - END_NUB_LENGTH,
         GRID_LINE_THICKNESS,
         GRID_LINE_COLOR,
@@ -175,7 +184,7 @@ fn draw_puzzle(screen_center_x_px: f32, screen_center_y_px: f32, puzzle_trail: &
 
     draw_circle(
         puzzle_left_px,
-        puzzle_top_px + PUZZLE_HEIGHT_PX,
+        puzzle_bottom_px,
         CURSOR_SIZE * 1.5,
         if puzzle_trail.is_empty() {
             GRID_LINE_COLOR
@@ -208,9 +217,15 @@ fn draw_puzzle(screen_center_x_px: f32, screen_center_y_px: f32, puzzle_trail: &
     );
     let (projected_mouse_x, projected_mouse_y) =
         if (mouse_x_px - last_corner_x_px).abs() > (mouse_y_px - last_corner_y_px).abs() {
-            (mouse_x_px, last_corner_y_px)
+            (
+                mouse_x_px.clamp(puzzle_left_px, puzzle_right_px),
+                last_corner_y_px,
+            )
         } else {
-            (last_corner_x_px, mouse_y_px)
+            (
+                last_corner_x_px,
+                mouse_y_px.clamp(puzzle_top_px, puzzle_bottom_px),
+            )
         };
 
     draw_line(
