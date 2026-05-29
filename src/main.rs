@@ -2,6 +2,7 @@ use macroquad::{miniquad::window::screen_size, prelude::*};
 
 const CURSOR_SIZE: f32 = 15.;
 const PUZZLE_START_CIRCLE_SIZE: f32 = CURSOR_SIZE * 1.5;
+const PUZZLE_TRAIL_COLOR: Color = Color::from_hex(0xcccc00);
 
 const PUZZLE_WIDTH_PX: f32 = 500.;
 const PUZZLE_HEIGHT_PX: f32 = PUZZLE_WIDTH_PX;
@@ -16,7 +17,7 @@ fn window_conf() -> Conf {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 struct PuzzleCorner {
     column: usize,
     row: usize,
@@ -25,6 +26,34 @@ struct PuzzleCorner {
 impl PuzzleCorner {
     pub fn new(column: usize, row: usize) -> Self {
         Self { column, row }
+    }
+
+    pub fn closest(
+        (mouse_x, mouse_y): (f32, f32),
+        screen_center_x_px: f32,
+        screen_center_y_px: f32,
+    ) -> Option<Self> {
+        let (puzzle_left_px, puzzle_top_px) =
+            get_puzzle_left_and_top_px(screen_center_x_px, screen_center_y_px);
+
+        let puzzle_local_mouse_x = mouse_x - puzzle_left_px;
+        let puzzle_local_mouse_y = mouse_y - puzzle_top_px;
+
+        if puzzle_local_mouse_x.is_sign_negative()
+            || puzzle_local_mouse_y.is_sign_negative()
+            || puzzle_local_mouse_x > PUZZLE_WIDTH_PX
+            || puzzle_local_mouse_y > PUZZLE_HEIGHT_PX
+        {
+            return None;
+        }
+
+        let column = (puzzle_local_mouse_x / (PUZZLE_WIDTH_PX / PUZZLE_NUM_COLUMNS as f32)).round();
+        let row = (puzzle_local_mouse_y / (PUZZLE_HEIGHT_PX / PUZZLE_NUM_ROWS as f32)).round();
+
+        Some(Self {
+            column: column as usize,
+            row: row as usize,
+        })
     }
 
     pub fn is_being_touched_by_cursor(
@@ -43,7 +72,7 @@ impl PuzzleCorner {
 
         let dx = mouse_x - puzzle_corner_x_px;
         let dy = mouse_y - puzzle_corner_y_px;
-        dx * dx + dy * dy <= PUZZLE_START_CIRCLE_SIZE.powi(2)
+        dx * dx + dy * dy <= (1.5 * PUZZLE_START_CIRCLE_SIZE).powi(2)
     }
 }
 
@@ -82,17 +111,27 @@ impl App {
             return;
         }
 
-        if self.puzzle_trail.is_empty()
-            && is_mouse_button_pressed(MouseButton::Left)
-            && PuzzleCorner::new(0, PUZZLE_NUM_ROWS).is_being_touched_by_cursor(
+        if self.puzzle_trail.is_empty() {
+            if is_mouse_button_pressed(MouseButton::Left)
+                && PuzzleCorner::new(0, PUZZLE_NUM_ROWS).is_being_touched_by_cursor(
+                    mouse_position(),
+                    screen_center_x_px,
+                    screen_center_y_px,
+                )
+            {
+                self.puzzle_trail
+                    .push(PuzzleCorner::new(0, PUZZLE_NUM_ROWS));
+            }
+        } else if let Some(closest) =
+            PuzzleCorner::closest(mouse_position(), screen_center_x_px, screen_center_y_px)
+            && closest.is_being_touched_by_cursor(
                 mouse_position(),
                 screen_center_x_px,
                 screen_center_y_px,
             )
+            && !self.puzzle_trail.contains(&closest)
         {
-            println!("fuck");
-            self.puzzle_trail
-                .push(PuzzleCorner::new(0, PUZZLE_NUM_ROWS));
+            self.puzzle_trail.push(closest);
         }
     }
 
@@ -160,7 +199,7 @@ fn draw_puzzle(screen_center_x_px: f32, screen_center_y_px: f32, puzzle_trail: &
         if puzzle_trail.is_empty() {
             GRID_LINE_COLOR
         } else {
-            YELLOW
+            PUZZLE_TRAIL_COLOR
         },
     );
 
@@ -168,33 +207,34 @@ fn draw_puzzle(screen_center_x_px: f32, screen_center_y_px: f32, puzzle_trail: &
         return;
     };
 
-    for [corner1, corner2] in puzzle_trail.as_chunks().0 {
+    for [corner1, corner2] in puzzle_trail.array_windows() {
         draw_line(
             puzzle_left_px + corner1.column as f32 * PUZZLE_WIDTH_PX / PUZZLE_NUM_COLUMNS as f32,
             puzzle_top_px + corner1.row as f32 * PUZZLE_HEIGHT_PX / PUZZLE_NUM_ROWS as f32,
             puzzle_left_px + corner2.column as f32 * PUZZLE_WIDTH_PX / PUZZLE_NUM_COLUMNS as f32,
             puzzle_top_px + corner2.row as f32 * PUZZLE_HEIGHT_PX / PUZZLE_NUM_ROWS as f32,
             GRID_LINE_THICKNESS,
-            YELLOW,
+            PUZZLE_TRAIL_COLOR,
         );
     }
 
+    let (mouse_x, mouse_y) = mouse_position();
     draw_line(
         puzzle_left_px + last_corner.column as f32 * PUZZLE_WIDTH_PX / PUZZLE_NUM_COLUMNS as f32,
         puzzle_top_px + last_corner.row as f32 * PUZZLE_HEIGHT_PX / PUZZLE_NUM_ROWS as f32,
-        mouse_position().0,
-        mouse_position().1,
+        mouse_x,
+        mouse_y,
         GRID_LINE_THICKNESS,
-        YELLOW,
+        PUZZLE_TRAIL_COLOR,
     );
 }
 
 #[macroquad::main(window_conf)]
 async fn main() {
     let mut app = App::new();
-    dbg!(&app);
 
     loop {
+        dbg!(&app.puzzle_trail);
         let (screen_width_px, screen_height_px) = screen_size();
         let (screen_center_x_px, screen_center_y_px) =
             (screen_width_px / 2., screen_height_px / 2.);
