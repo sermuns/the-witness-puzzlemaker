@@ -26,11 +26,10 @@ impl PuzzleCorner {
         Self { column, row }
     }
 
-    pub fn closest(
-        (mouse_x, mouse_y): (f32, f32),
-        screen_center_x_px: f32,
-        screen_center_y_px: f32,
-    ) -> Option<Self> {
+    pub fn closest() -> Option<Self> {
+        let (mouse_x, mouse_y) = mouse_position();
+        let (screen_center_x_px, screen_center_y_px) = (screen_size().0 / 2., screen_size().1 / 2.);
+
         let (puzzle_left_px, puzzle_top_px) =
             get_puzzle_left_and_top_px(screen_center_x_px, screen_center_y_px);
 
@@ -55,12 +54,10 @@ impl PuzzleCorner {
         })
     }
 
-    pub fn is_being_touched_by_cursor(
-        &self,
-        (mouse_x, mouse_y): (f32, f32),
-        screen_center_x_px: f32,
-        screen_center_y_px: f32,
-    ) -> bool {
+    pub fn is_being_touched_by_cursor(&self) -> bool {
+        let (mouse_x, mouse_y) = mouse_position();
+        let (screen_center_x_px, screen_center_y_px) = (screen_size().0 / 2., screen_size().1 / 2.);
+
         let (puzzle_left_px, puzzle_top_px) =
             get_puzzle_left_and_top_px(screen_center_x_px, screen_center_y_px);
 
@@ -99,39 +96,38 @@ impl App {
         }
     }
 
-    pub fn handle_user_input(&mut self, screen_center_x_px: f32, screen_center_y_px: f32) {
+    pub fn handle_user_input(&mut self) {
         if is_mouse_button_pressed(MouseButton::Right) || is_key_pressed(KeyCode::Escape) {
             self.puzzle_trail.clear();
             return;
         }
 
         // FIXME: unreadable shit
-        if let Some(last_corner) = self.puzzle_trail.last()
-            && let Some(closest) =
-                PuzzleCorner::closest(mouse_position(), screen_center_x_px, screen_center_y_px)
-            && closest.is_being_touched_by_cursor(
-                mouse_position(),
-                screen_center_x_px,
-                screen_center_y_px,
-            )
+        if self
+            .puzzle_trail
+            .iter()
+            .nth_back(1)
+            .is_some_and(|c| c.is_being_touched_by_cursor())
+        {
+        } else if let Some(last_corner) = self.puzzle_trail.last()
+            && let Some(closest) = PuzzleCorner::closest()
+            && closest.is_being_touched_by_cursor()
             && !self.puzzle_trail.contains(&closest)
             && closest.is_within_range_of(last_corner)
         {
             self.puzzle_trail.push(closest);
         } else if is_mouse_button_pressed(MouseButton::Left) {
             let start = PuzzleCorner::new(0, PUZZLE_NUM_ROWS);
-            if start.is_being_touched_by_cursor(
-                mouse_position(),
-                screen_center_x_px,
-                screen_center_y_px,
-            ) {
+            if start.is_being_touched_by_cursor() {
                 self.puzzle_trail.push(start);
             }
         }
     }
 }
 
-fn draw_puzzle(screen_center_x_px: f32, screen_center_y_px: f32, puzzle_trail: &[PuzzleCorner]) {
+fn draw_puzzle(puzzle_trail: &[PuzzleCorner]) {
+    let (screen_center_x_px, screen_center_y_px) = (screen_size().0 / 2., screen_size().1 / 2.);
+
     let (puzzle_left_px, puzzle_top_px) =
         get_puzzle_left_and_top_px(screen_center_x_px, screen_center_y_px);
     let puzzle_right_px = puzzle_left_px + PUZZLE_WIDTH_PX;
@@ -257,15 +253,11 @@ async fn main() {
     let mut app = App::new();
 
     loop {
-        let (screen_width_px, screen_height_px) = screen_size();
-        let (screen_center_x_px, screen_center_y_px) =
-            (screen_width_px / 2., screen_height_px / 2.);
-
-        app.handle_user_input(screen_center_x_px, screen_center_y_px);
+        app.handle_user_input();
 
         clear_background(BLACK);
 
-        draw_puzzle(screen_center_x_px, screen_center_y_px, &app.puzzle_trail);
+        draw_puzzle(&app.puzzle_trail);
 
         next_frame().await
     }
