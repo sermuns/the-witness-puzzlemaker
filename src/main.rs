@@ -10,13 +10,6 @@ const PUZZLE_HEIGHT_PX: f32 = PUZZLE_WIDTH_PX;
 const PUZZLE_NUM_ROWS: usize = 3;
 const PUZZLE_NUM_COLUMNS: usize = PUZZLE_NUM_ROWS;
 
-fn window_conf() -> Conf {
-    Conf {
-        window_title: env!("CARGO_PKG_NAME").into(),
-        ..Default::default()
-    }
-}
-
 #[derive(Debug, PartialEq)]
 struct PuzzleCorner {
     column: usize,
@@ -44,6 +37,7 @@ impl PuzzleCorner {
             || puzzle_local_mouse_x > PUZZLE_WIDTH_PX
             || puzzle_local_mouse_y > PUZZLE_HEIGHT_PX
         {
+            // out of bounds
             return None;
         }
 
@@ -78,7 +72,6 @@ impl PuzzleCorner {
 
 #[derive(Debug)]
 struct App {
-    paused: bool,
     puzzle_trail: Vec<PuzzleCorner>,
 }
 
@@ -92,38 +85,19 @@ fn get_puzzle_left_and_top_px(screen_center_x_px: f32, screen_center_y_px: f32) 
 impl App {
     pub fn new() -> Self {
         Self {
-            paused: true,
             puzzle_trail: Vec::new(),
         }
     }
 
     pub fn handle_user_input(&mut self, screen_center_x_px: f32, screen_center_y_px: f32) {
-        if is_key_pressed(KeyCode::Escape)
-            || (self.paused && is_mouse_button_pressed(MouseButton::Left))
-        {
-            self.paused = !self.paused;
+        if is_mouse_button_pressed(MouseButton::Right) || is_key_pressed(KeyCode::Escape) {
             self.puzzle_trail.clear();
             return;
         }
 
-        if is_mouse_button_pressed(MouseButton::Right) {
-            self.puzzle_trail.clear();
-            return;
-        }
-
-        if self.puzzle_trail.is_empty() {
-            if is_mouse_button_pressed(MouseButton::Left)
-                && PuzzleCorner::new(0, PUZZLE_NUM_ROWS).is_being_touched_by_cursor(
-                    mouse_position(),
-                    screen_center_x_px,
-                    screen_center_y_px,
-                )
-            {
-                self.puzzle_trail
-                    .push(PuzzleCorner::new(0, PUZZLE_NUM_ROWS));
-            }
-        } else if let Some(closest) =
-            PuzzleCorner::closest(mouse_position(), screen_center_x_px, screen_center_y_px)
+        if let Some(last_corner) = self.puzzle_trail.last()
+            && let Some(closest) =
+                PuzzleCorner::closest(mouse_position(), screen_center_x_px, screen_center_y_px)
             && closest.is_being_touched_by_cursor(
                 mouse_position(),
                 screen_center_x_px,
@@ -132,13 +106,19 @@ impl App {
             && !self.puzzle_trail.contains(&closest)
         {
             self.puzzle_trail.push(closest);
+        } else if is_mouse_button_pressed(MouseButton::Left)
+            && PuzzleCorner::new(0, PUZZLE_NUM_ROWS).is_being_touched_by_cursor(
+                mouse_position(),
+                screen_center_x_px,
+                screen_center_y_px,
+            )
+        {
+            self.puzzle_trail
+                .push(PuzzleCorner::new(0, PUZZLE_NUM_ROWS));
         }
     }
 
     pub fn draw_cursor(&self) {
-        if self.paused {
-            return;
-        }
         let (mouse_x, mouse_y) = mouse_position();
 
         const CURSOR_COLOR: Color = Color::from_rgba(255, 255, 255, 200);
@@ -218,15 +198,33 @@ fn draw_puzzle(screen_center_x_px: f32, screen_center_y_px: f32, puzzle_trail: &
         );
     }
 
-    let (mouse_x, mouse_y) = mouse_position();
+    let (mouse_x_px, mouse_y_px) = mouse_position();
+    let (last_corner_x_px, last_corner_y_px) = (
+        puzzle_left_px + last_corner.column as f32 * PUZZLE_WIDTH_PX / PUZZLE_NUM_COLUMNS as f32,
+        puzzle_top_px + last_corner.row as f32 * PUZZLE_HEIGHT_PX / PUZZLE_NUM_ROWS as f32,
+    );
+    let (projected_mouse_x, projected_mouse_y) =
+        if (mouse_x_px - last_corner_x_px).abs() > (mouse_y_px - last_corner_y_px).abs() {
+            (mouse_x_px, last_corner_y_px)
+        } else {
+            (last_corner_x_px, mouse_y_px)
+        };
+
     draw_line(
         puzzle_left_px + last_corner.column as f32 * PUZZLE_WIDTH_PX / PUZZLE_NUM_COLUMNS as f32,
         puzzle_top_px + last_corner.row as f32 * PUZZLE_HEIGHT_PX / PUZZLE_NUM_ROWS as f32,
-        mouse_x,
-        mouse_y,
+        projected_mouse_x,
+        projected_mouse_y,
         GRID_LINE_THICKNESS,
         PUZZLE_TRAIL_COLOR,
     );
+}
+
+fn window_conf() -> Conf {
+    Conf {
+        window_title: env!("CARGO_PKG_NAME").into(),
+        ..Default::default()
+    }
 }
 
 #[macroquad::main(window_conf)]
