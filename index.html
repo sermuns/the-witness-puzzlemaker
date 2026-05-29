@@ -2,6 +2,7 @@
 <html lang="sv">
 	<head>
 		<meta charset="utf-8" />
+		<title>the-witness-puzzlemaker</title>
 		<style>
 			html,
 			body,
@@ -16,14 +17,13 @@
 				z-index: 0;
 			}
 		</style>
-		<link data-trunk rel="rust" data-wasm-no-import />
 	</head>
 
 	<body>
 		<canvas id="glcanvas" tabindex="1"></canvas>
-		<script data-trunk src="static/mq_js_bundle.js"></script>
+		<script src="mq_js_bundle.js"></script>
 		<script>
-			load("the_witness_puzzlemaker_bg.wasm");
+			load("the-witness-puzzlemaker.wasm");
 		</script>
 	</body>
 </html>
